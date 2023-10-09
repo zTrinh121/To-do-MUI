@@ -6,6 +6,11 @@ import {
   Checkbox,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -25,10 +30,19 @@ import EditIcon from '@mui/icons-material/Edit';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { isEmpty } from 'validator';
+import { v4 as uuidv4 } from 'uuid';
 
 function App() {
-
+  const [isValidate, setValidate] = useState(false)
+  const [statuses, setStatus] = useState([])
+  const [filter, setFilter] = useState("all")
   const [task, setTask] = useState({
+    id: "",
+    title: "",
+    priority: "high",
+    isDone: false
+  })
+  const [editedTask, setEditedTask] = useState({
     id: "",
     title: "",
     priority: "high",
@@ -62,6 +76,11 @@ function App() {
   //     isDone: false
   //   }
   // ])
+  const handleEdit = (task) => {
+    setOpen(true)
+    setEditedTask(task)
+  }
+
   const changeColor = (priority) => {
     switch (priority) {
       case "high":
@@ -75,52 +94,26 @@ function App() {
 
   //Thêm task
   const handleSubmit = () => {
-    const isValid = validationAll()
-    if (!isValid) return
-    toast.success('Add task successfully', {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-    });
-    setTaskList(prev => {
-      const newTaskList = [...prev, task]
-      //Luu gia tri
-      const jsonTaskList = JSON.stringify(newTaskList)
-      localStorage.setItem('tasks', jsonTaskList)
-      return newTaskList
+    if (task.title.trim() === "") {
+      setValidate(true)
+      toast.error("Add task fail")
+      return;
+    }
 
-    })
+    toast.success('Add task successfully')
+    setTaskList([...taskList, {
+      ...task,
+      id: uuidv4()
+    }])
     setTask({
       id: "",
       title: "",
       priority: "high",
       isDone: false
     })
+    setValidate(false)
   }
 
-  //Validate
-  const [msgValidation, setMsg] = useState('')
-  const validationAll = () => {
-
-    const msg = {}
-    if (isEmpty(task.title)) {
-      msg.title = "*Required"
-    }
-    setMsg(msg)
-    if (Object.keys(msg).length === 0) return true;
-    console.log("It empty");
-    return false
-  }
-
-  //Lọc task (chỉ chọn 1 filter thôi)
-  const [statuses, setStatus] = useState([])
-  const [filter, setFilter] = useState("all")
-  console.log(statuses);
 
   const toggleStatusFilter = (priority) => {
     if (statuses.includes(priority)) {
@@ -168,8 +161,19 @@ function App() {
     })
     setTaskList(newList)
   }
-  console.log(taskList);
-
+const handleUpdateTask = (editedTask)=> {
+  console.log(editedTask);
+  const newList = taskList.map((task) => {
+    if(editedTask.id === task.id){
+      return editedTask
+    }
+    return task
+    
+  }) 
+  setTaskList(newList)
+  handleClose()
+  
+}
   // Modal
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
@@ -188,8 +192,54 @@ function App() {
     p: 4,
   };
 
+
   return (
     <>
+      <Dialog maxWidth={'lg'} open={open} onClose={handleClose}>
+        <DialogTitle>Edit task</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Edit your task</DialogContentText>
+          <Stack direction={"row"} gap={2} width={600} marginTop={2}>
+            <TextField
+              id="outlined-basic"
+              label="Title"
+              variant="outlined"
+              value={editedTask.title}
+              sx={{ flex: 3 }}
+              error={isValidate && editedTask.title.trim() === ""}
+              onChange={(e) => setEditedTask({
+                ...editedTask,
+                title: e.target.value
+              })}
+            />
+            <Box sx={{ flex: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel id="demo-simple-select-label">
+                  Priority
+                </InputLabel>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  defaultValue={editedTask.priority}
+                  onChange={e => setEditedTask({
+                    ...editedTask,
+                    priority: e.target.value
+                  })}
+                >
+                  <MenuItem value={"high"}>High</MenuItem>
+                  <MenuItem value={"normal"}>Normal</MenuItem>
+                  <MenuItem value={"low"}>Low</MenuItem>
+                </Select>
+              </FormControl>
+
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={() => handleUpdateTask(editedTask)}>Submit</Button>
+        </DialogActions>
+      </Dialog>
       <Box
         sx={{
           minWidth: "100vw",
@@ -250,7 +300,9 @@ function App() {
                   {
                     taskList.map((task, index) => {
                       return statuses.length === 0 || statuses.includes(task.priority) || statuses.includes("all")
-                        ? (
+                        ?
+                        (<>
+
                           <Stack direction={"row"} gap={1} alignItems={"center"} key={index}>
                             <Checkbox
                               checked={task.isDone}
@@ -272,28 +324,14 @@ function App() {
                             />
 
                             <IconButton
-                              aria-label="delete"
+                              aria-label="edit"
                               size="large"
-                              onClick={handleOpen}
+                              onClick={() => handleEdit(task)}
 
                             >
                               <EditIcon fontSize="inherit" />
                             </IconButton>
-                            <Modal
-                              open={open}
-                              onClose={handleClose}
-                              aria-labelledby="modal-modal-title"
-                              aria-describedby="modal-modal-description"
-                            >
-                              <Box sx={style}>
-                                <Typography id="modal-modal-title" variant="h6" component="h2">
-                                  Text in a modal
-                                </Typography>
-                                <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                  Duis mollis, est non commodo luctus, nisi erat porttitor ligula.
-                                </Typography>
-                              </Box>
-                            </Modal>
+
                             <IconButton
                               aria-label="delete"
                               size="large"
@@ -304,6 +342,7 @@ function App() {
 
                             </IconButton>
                           </Stack>
+                        </>
                         ) :
                         (<></>)
                     })
@@ -323,7 +362,7 @@ function App() {
               <Typography variant="h6" marginBottom={1} marginTop={2}>
                 Create task
               </Typography>
-              <p style={{ color: "#cc0000", fontFamily: "Arial", fontSize: "12px" }}>{msgValidation.title}</p>
+              {/* <p style={{ color: "#cc0000", fontFamily: "Arial", fontSize: "12px" }}>{msgValidation.title}</p> */}
               <Stack direction={"row"} gap={2}>
                 <TextField
                   id="outlined-basic"
@@ -331,6 +370,7 @@ function App() {
                   variant="outlined"
                   value={task.title}
                   sx={{ flex: 3 }}
+                  error={isValidate && task.title.trim() === ""}
                   onChange={(e) => setTask({
                     ...task,
                     title: e.target.value
